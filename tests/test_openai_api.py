@@ -2,7 +2,7 @@ import os
 import json
 import pytest
 from dotenv import load_dotenv
-import openai
+from openai import OpenAI
 
 # Load .env once, so OPENAI_API_KEY (etc.) is available.
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -13,11 +13,10 @@ class OpenAIConnectionTester:
 
     def __init__(self, api_key: str, model: str = "gpt-3.5-turbo"):
         """
-        Store API key and model; set openai.api_key for requests.
+        Initialize OpenAI client with API key and model.
         """
-        self.api_key = api_key
         self.model = model
-        openai.api_key = api_key  # If using the official openai library.
+        self.client = OpenAI(api_key=api_key)
 
     def check_connection(self) -> dict:
         """
@@ -31,12 +30,12 @@ class OpenAIConnectionTester:
             "response": None,
         }
 
-        if not self.api_key:
+        if not self.client.api_key:
             result["message"] = "No API key provided"
             return result
 
         try:
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
@@ -46,8 +45,8 @@ class OpenAIConnectionTester:
                 ],
                 max_tokens=20,
             )
-            content = response["choices"][0]["message"]["content"]
-            usage = response["usage"]
+            content = response.choices[0].message.content
+            usage = response.usage
 
             result.update(
                 {
@@ -55,11 +54,11 @@ class OpenAIConnectionTester:
                     "message": "API connection successful",
                     "response": {
                         "content": content,
-                        "model": response["model"],
+                        "model": response.model,
                         "usage": {
-                            "completion_tokens": usage["completion_tokens"],
-                            "prompt_tokens": usage["prompt_tokens"],
-                            "total_tokens": usage["total_tokens"],
+                            "completion_tokens": usage.completion_tokens,
+                            "prompt_tokens": usage.prompt_tokens,
+                            "total_tokens": usage.total_tokens,
                         },
                     },
                 }
@@ -90,5 +89,4 @@ def test_openai_connection():
 
     # Check that the response content includes 'operational'
     assert (
-        "operational" in result["response"]["content"].lower()
-    ), f"Unexpected response content: {result['response']['content']}"
+        "operational" in result["response"]["content"].lower()), f"Unexpected response content: {result['response']['content']}"
